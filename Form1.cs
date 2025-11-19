@@ -11,7 +11,6 @@ namespace CaptureForSIMPLE
 
         private int CAPTURE_INTERVAL_MS = 100; // キャプチャ間隔（ミリ秒）
 
-
         public Form1()
         {
             InitializeComponent();
