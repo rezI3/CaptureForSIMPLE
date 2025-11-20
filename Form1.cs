@@ -65,7 +65,7 @@ namespace CaptureForSIMPLE
             }
 
             // マウスカーソルの大きさを取得
-            systemCursorSize = GetSystemCursorSize();
+            systemCursorSize = (int)(GetSystemCursorSize() * 1.5);
         }
 
         private void comboBoxMonitors_SelectedIndexChanged(object sender, EventArgs e)
