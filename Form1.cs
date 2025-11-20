@@ -1,9 +1,8 @@
-using System;
+ï»¿using System;
 using System.Drawing;
+using System.Drawing.Drawing2D; // è¿½åŠ : æç”»å“è³ªå‘ä¸Šã®ãŸã‚
 using System.Linq;
 using System.Windows.Forms;
-using Microsoft.Win32;
-using System.Runtime.InteropServices; // ‚±‚ê‚ğƒtƒ@ƒCƒ‹‚Ìæ“ª(usingŒQ)‚É’Ç‰Á‚µ‚Ä‚­‚¾‚³‚¢
 
 namespace CaptureForSIMPLE
 {
@@ -11,61 +10,47 @@ namespace CaptureForSIMPLE
     {
         private bool _suspendRendering = false;
 
-        private int CAPTURE_INTERVAL_MS = 10; // ƒLƒƒƒvƒ`ƒƒŠÔŠuiƒ~ƒŠ•bj
+        // ã‚­ãƒ£ãƒ—ãƒãƒ£é–“éš”ï¼ˆãƒŸãƒªç§’ï¼‰
+        private int CAPTURE_INTERVAL_MS = 10;
 
-        private int systemCursorSize = 32; // ƒVƒXƒeƒ€ƒJ[ƒ\ƒ‹‚ÌƒTƒCƒYiƒsƒNƒZƒ‹j
+        // â–¼â–¼â–¼ è¨­å®šã‚¨ãƒªã‚¢ â–¼â–¼â–¼
 
-        // ¥¥¥ API’è‹`‚Ì’Ç‰ÁiForm1ƒNƒ‰ƒX‚Ì“à‘¤Aƒƒ\ƒbƒh‚ÌŠO‘¤‚É“\‚è•t‚¯j ¥¥¥
+        // ã‚«ãƒ¼ã‚½ãƒ«ã®å¤§ãã•ï¼ˆãƒ”ã‚¯ã‚»ãƒ«ï¼‰
+        // 50ã€œ100ãã‚‰ã„ãŒå¤§ããè¦‹ã‚„ã™ã„ã‚µã‚¤ã‚ºã§ã™
+        private int _fixedCursorSize = 90;
 
+        // ã‚«ãƒ¼ã‚½ãƒ«ã®è‰²
+        private Color _fixedCursorColor = Color.Yellow;
 
-[StructLayout(LayoutKind.Sequential)]
-    struct CURSORINFO
-    {
-        public int cbSize;
-        public int flags;
-        public IntPtr hCursor;
-        public Point ptScreenPos;
-}
-
-[DllImport("user32.dll")]
-        static extern bool GetCursorInfo(ref CURSORINFO pci);
-
-        const int CURSOR_SHOWING = 0x00000001;
-
-        // £££ API’è‹`‚Ì’Ç‰Á‚±‚±‚Ü‚Å £££
+        // â–²â–²â–²â–²â–²â–²â–²â–²â–²â–²â–²â–²â–²â–²
 
         public Form1()
         {
             InitializeComponent();
-            this.AutoScaleMode = AutoScaleMode.Dpi; // DPIƒXƒP[ƒŠƒ“ƒO‘Î‰
-
-         }
+            this.AutoScaleMode = AutoScaleMode.Dpi;
+        }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // ƒtƒH[ƒ€‘S‰æ–Ê•PictureBox ‚ğƒtƒH[ƒ€‚ÉƒtƒBƒbƒg
+            // ãƒ•ã‚©ãƒ¼ãƒ å…¨ç”»é¢è¨­å®š
             this.WindowState = FormWindowState.Maximized;
 
-            // PictureBox ‚ÍƒtƒH[ƒ€‚É’Ç‚µ‚ÄŠg‘åk¬
+            // PictureBoxè¨­å®š
             pictureBoxDisplay.Dock = DockStyle.Fill;
-            pictureBoxDisplay.SizeMode = PictureBoxSizeMode.Zoom; // ƒAƒXƒyƒNƒg”äˆÛ{•Ğ‘¤‚Ì‚İ—]”’
-            pictureBoxDisplay.BackColor = Color.Black;            // —]”’‚ÌFi”CˆÓj
+            pictureBoxDisplay.SizeMode = PictureBoxSizeMode.Zoom;
+            pictureBoxDisplay.BackColor = Color.Black;
 
-            // ƒLƒƒƒvƒ`ƒƒ•p“xi”CˆÓ‚Å’²®j
+            // ã‚¿ã‚¤ãƒãƒ¼è¨­å®š
             captureTimer.Interval = CAPTURE_INTERVAL_MS;
 
-            // ‚Ü‚¸ƒNƒŠƒA
+            // ãƒ¢ãƒ‹ã‚¿ä¸€è¦§å–å¾—
             comboBoxMonitors.Items.Clear();
-
-            // ƒ‚ƒjƒ^ˆê——
             comboBoxMonitors.Items.AddRange(Screen.AllScreens.Select(s => s.DeviceName).ToArray());
+
             if (comboBoxMonitors.Items.Count > 0)
             {
                 comboBoxMonitors.SelectedIndex = 0;
             }
-
-            // ƒ}ƒEƒXƒJ[ƒ\ƒ‹‚Ì‘å‚«‚³‚ğæ“¾
-            systemCursorSize = (int)(GetSystemCursorSize() * 1.5);
         }
 
         private void comboBoxMonitors_SelectedIndexChanged(object sender, EventArgs e)
@@ -73,7 +58,6 @@ namespace CaptureForSIMPLE
             if (comboBoxMonitors.SelectedIndex >= 0 && !_suspendRendering)
             {
                 if (!captureTimer.Enabled) captureTimer.Start();
-                // ‚·‚®‚É1‰ñ•\¦‚ğXV
                 CaptureSelectedMonitor();
             }
             else
@@ -84,7 +68,7 @@ namespace CaptureForSIMPLE
 
         private void Form1_Resize(object sender, EventArgs e)
         {
-            // Å¬‰»’†‚ÍƒŒƒ“ƒ_ƒŠƒ“ƒO’â~
+            // æœ€å°åŒ–ä¸­ã¯å‡¦ç†åœæ­¢
             _suspendRendering = (this.WindowState == FormWindowState.Minimized);
 
             if (_suspendRendering)
@@ -93,7 +77,7 @@ namespace CaptureForSIMPLE
                 return;
             }
 
-            // •œ‹A‚ÍÄŠJ & 1‰ñƒLƒƒƒvƒ`ƒƒ
+            // å¾©å¸°æ™‚
             if (comboBoxMonitors.SelectedIndex >= 0 && !captureTimer.Enabled)
             {
                 captureTimer.Start();
@@ -108,102 +92,72 @@ namespace CaptureForSIMPLE
 
         private void CaptureSelectedMonitor()
         {
-            // ƒK[ƒhFÅ¬‰» or ƒ‚ƒjƒ^–¢‘I‘ğ
             if (_suspendRendering) return;
             if (comboBoxMonitors.SelectedIndex < 0) return;
 
-            // PictureBox ‚Ì•`‰æ—Ìˆæ‚ª 0 ‚Ì‚Æ‚«‚Í‰½‚à‚µ‚È‚¢
             var w = pictureBoxDisplay.ClientSize.Width;
             var h = pictureBoxDisplay.ClientSize.Height;
             if (w <= 0 || h <= 0) return;
 
-            // ‘I‘ğƒ‚ƒjƒ^
             var selectedScreen = Screen.AllScreens[comboBoxMonitors.SelectedIndex];
             var bounds = selectedScreen.Bounds;
 
             if (bounds.Width <= 0 || bounds.Height <= 0) return;
 
-            // ƒLƒƒƒvƒ`ƒƒŒ³‚Ì Bitmap ‚ğì¬iŒ´¡j
+            // ã‚­ãƒ£ãƒ—ãƒãƒ£ç”¨ãƒ“ãƒƒãƒˆãƒãƒƒãƒ—ä½œæˆ
             using (var captureBitmap = new Bitmap(bounds.Width, bounds.Height))
             using (var g = Graphics.FromImage(captureBitmap))
             {
-                // ‰æ–ÊƒLƒƒƒvƒ`ƒƒ
+                // 1. ç”»é¢ã‚­ãƒ£ãƒ—ãƒãƒ£
                 g.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
 
-                var newSize = new Size(systemCursorSize, systemCursorSize);
-
-                // 2. •`‰æˆÊ’u‚Ì’²®
+                // 2. ãƒã‚¦ã‚¹ä½ç½®è¨ˆç®—
                 var cursorPosition = Cursor.Position;
                 cursorPosition.Offset(-bounds.Left, -bounds.Top);
-                var cursorBounds = new Rectangle(cursorPosition, newSize);
 
-                // 3. Œ»İ‚ÌƒJ[ƒ\ƒ‹î•ñ‚Ìæ“¾iAPIg—pj
-                CURSORINFO pci = new CURSORINFO();
-                pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+                // æç”»å“è³ªã‚’ä¸Šã’ã‚‹è¨­å®šï¼ˆã‚®ã‚¶ã‚®ã‚¶è»½æ¸›ï¼‰
+                g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                if (GetCursorInfo(ref pci))
+                // 3. ã‚«ãƒ¼ã‚½ãƒ«å½¢çŠ¶ã®å®šç¾©ï¼ˆWindowsæ¨™æº–ãƒã‚¤ãƒ³ã‚¿æ¯”ç‡ï¼‰
+                float s = _fixedCursorSize;
+                float x = cursorPosition.X;
+                float y = cursorPosition.Y;
+
+                // æ¨™æº–çš„ãªçŸ¢å°ã‚«ãƒ¼ã‚½ãƒ«ã®é ‚ç‚¹ï¼ˆ7ç‚¹ï¼‰
+                // æ­ªã¿ã‚’ãªãã™ãŸã‚ã€æ¨™æº–çš„ãªã‚¸ã‚ªãƒ¡ãƒˆãƒªæ¯”ç‡ã‚’ä½¿ç”¨ã—ã¦ã„ã¾ã™
+                PointF[] arrowPoints = {
+                    new PointF(x, y),                                   // 1. å…ˆç«¯
+                    new PointF(x, y + s),                               // 2. å·¦è¾ºã®ä¸‹ç«¯
+                    new PointF(x + (0.27f * s), y + (0.72f * s)),       // 3. å·¦ã®ãã³ã‚Œé–‹å§‹
+                    new PointF(x + (0.45f * s), y + (1.05f * s)),       // 4. ã—ã£ã½ã®å·¦ä¸‹
+                    new PointF(x + (0.62f * s), y + (0.90f * s)),       // 5. ã—ã£ã½ã®å³ä¸‹
+                    new PointF(x + (0.44f * s), y + (0.58f * s)),       // 6. å³ã®ãã³ã‚Œé–‹å§‹
+                    new PointF(x + (0.78f * s), y + (0.58f * s))        // 7. å³ã®ç¿¼ç«¯
+                };
+
+                // 4. æç”»ï¼ˆå¡—ã‚Šã¤ã¶ã—ï¼‰
+                using (var brush = new SolidBrush(_fixedCursorColor))
                 {
-                    // ƒJ[ƒ\ƒ‹‚ª•\¦‚³‚ê‚Ä‚¢‚éê‡‚Ì‚İ•`‰æ
-                    if (pci.flags == CURSOR_SHOWING)
-                    {
-                        // pci.hCursor ‚É‚ÍuŒ»İ•\¦‚³‚ê‚Ä‚¢‚éF•t‚«ƒJ[ƒ\ƒ‹v‚Ìƒnƒ“ƒhƒ‹‚ª“ü‚Á‚Ä‚¢‚Ü‚·
-                        // ‚±‚ê‚ğ DrawIcon ‚Å•`‰æ‚µ‚Ü‚·
-                        try
-                        {
-                            using (var icon = Icon.FromHandle(pci.hCursor))
-                            {
-                                g.DrawIcon(icon, cursorBounds);
-                            }
-                        }
-                        catch
-                        {
-                            // –œ‚ªˆêƒnƒ“ƒhƒ‹‚Ìæ“¾‚É¸”s‚µ‚½ê‡‚ÍAƒfƒtƒHƒ‹ƒg‚ğ•`‰æi•ÛŒ¯j
-                            Cursors.Default.Draw(g, cursorBounds);
-                        }
-                    }
+                    g.FillPolygon(brush, arrowPoints);
                 }
 
-                // Šù‘¶ƒCƒ[ƒW‚ğ”jŠü
+                // 5. ç¸å–ã‚Šï¼ˆé»’æ ï¼‰
+                // å¹…ã‚’3pxã«ã—ã¦è¦–èªæ€§ã‚’å‘ä¸Š
+                using (var pen = new Pen(Color.Black, 3))
+                {
+                    pen.LineJoin = LineJoin.Round; // è§’ã‚’ä¸¸ã‚ã¦è‡ªç„¶ã«è¦‹ã›ã‚‹
+                    g.DrawPolygon(pen, arrowPoints);
+                }
+
+                // 6. è¡¨ç¤ºæ›´æ–°
                 if (pictureBoxDisplay.Image != null)
                 {
                     pictureBoxDisplay.Image.Dispose();
                     pictureBoxDisplay.Image = null;
                 }
 
-                // š‚±‚±‚ª‡@‚Ì—v“_F
-                // è“®ƒXƒP[ƒŠƒ“ƒO‚Í‚¹‚¸‚ÉAŒ´¡‚Ìƒrƒbƒgƒ}ƒbƒv‚ğ PictureBox ‚É“n‚·B
-                // PictureBoxSizeMode.Zoom ‚ªƒAƒXƒyƒNƒg”ä‚ğ•Û‚¿‚Â‚ÂA•Ğ‘¤‚Ì‚İ—]”’‚ÅƒtƒBƒbƒg‚³‚¹‚éB
                 pictureBoxDisplay.Image = (Image)captureBitmap.Clone();
             }
-        }
-
-        /// <summary>
-        /// Windows‚Ìİ’èiƒAƒNƒZƒVƒrƒŠƒeƒBj‚Åw’è‚³‚ê‚½ƒJ[ƒ\ƒ‹‚ÌƒTƒCƒY‚ğæ“¾‚µ‚Ü‚·B
-        /// æ“¾‚Å‚«‚È‚¢ê‡‚Í•W€‚Ì32‚ğ•Ô‚µ‚Ü‚·B
-        /// </summary>
-        private int GetSystemCursorSize()
-        {
-            try
-            {
-                // ƒ†[ƒU[‚²‚Æ‚Ìİ’è‚ª•Û‘¶‚³‚ê‚Ä‚¢‚éƒŒƒWƒXƒgƒŠƒL[‚ğŠJ‚­
-                using (var key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Cursors"))
-                {
-                    if (key != null)
-                    {
-                        // "CursorBaseSize" ‚Æ‚¢‚¤–¼‘O‚Ì’l‚ğæ“¾
-                        var val = key.GetValue("CursorBaseSize");
-                        if (val != null)
-                        {
-                            return Convert.ToInt32(val);
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // ƒGƒ‰[‚ª”­¶‚µ‚½ê‡‚âƒL[‚ª‚È‚¢ê‡‚Í•W€ƒTƒCƒY‚ğ•Ô‚·
-            }
-            return 32; // ƒfƒtƒHƒ‹ƒgi32x32j
         }
     }
 }
