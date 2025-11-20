@@ -2,6 +2,8 @@ using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using Microsoft.Win32;
+using System.Runtime.InteropServices; // これをファイルの先頭(using群)に追加してください
 
 namespace CaptureForSIMPLE
 {
@@ -9,7 +11,28 @@ namespace CaptureForSIMPLE
     {
         private bool _suspendRendering = false;
 
-        private int CAPTURE_INTERVAL_MS = 100; // キャプチャ間隔（ミリ秒）
+        private int CAPTURE_INTERVAL_MS = 10; // キャプチャ間隔（ミリ秒）
+
+        private int systemCursorSize = 32; // システムカーソルのサイズ（ピクセル）
+
+        // ▼▼▼ API定義の追加（Form1クラスの内側、メソッドの外側に貼り付け） ▼▼▼
+
+
+[StructLayout(LayoutKind.Sequential)]
+    struct CURSORINFO
+    {
+        public int cbSize;
+        public int flags;
+        public IntPtr hCursor;
+        public Point ptScreenPos;
+}
+
+[DllImport("user32.dll")]
+        static extern bool GetCursorInfo(ref CURSORINFO pci);
+
+        const int CURSOR_SHOWING = 0x00000001;
+
+        // ▲▲▲ API定義の追加ここまで ▲▲▲
 
         public Form1()
         {
@@ -40,6 +63,9 @@ namespace CaptureForSIMPLE
             {
                 comboBoxMonitors.SelectedIndex = 0;
             }
+
+            // マウスカーソルの大きさを取得
+            systemCursorSize = GetSystemCursorSize();
         }
 
         private void comboBoxMonitors_SelectedIndexChanged(object sender, EventArgs e)
@@ -104,11 +130,38 @@ namespace CaptureForSIMPLE
                 // 画面キャプチャ
                 g.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
 
-                // マウスカーソルを描画（必要なら）
+                var newSize = new Size(systemCursorSize, systemCursorSize);
+
+                // 2. 描画位置の調整
                 var cursorPosition = Cursor.Position;
                 cursorPosition.Offset(-bounds.Left, -bounds.Top);
-                var cursorBounds = new Rectangle(cursorPosition, Cursors.Default.Size);
-                Cursors.Default.Draw(g, cursorBounds);
+                var cursorBounds = new Rectangle(cursorPosition, newSize);
+
+                // 3. 現在のカーソル情報の取得（API使用）
+                CURSORINFO pci = new CURSORINFO();
+                pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+
+                if (GetCursorInfo(ref pci))
+                {
+                    // カーソルが表示されている場合のみ描画
+                    if (pci.flags == CURSOR_SHOWING)
+                    {
+                        // pci.hCursor には「現在表示されている色付きカーソル」のハンドルが入っています
+                        // これを DrawIcon で描画します
+                        try
+                        {
+                            using (var icon = Icon.FromHandle(pci.hCursor))
+                            {
+                                g.DrawIcon(icon, cursorBounds);
+                            }
+                        }
+                        catch
+                        {
+                            // 万が一ハンドルの取得に失敗した場合は、デフォルトを描画（保険）
+                            Cursors.Default.Draw(g, cursorBounds);
+                        }
+                    }
+                }
 
                 // 既存イメージを破棄
                 if (pictureBoxDisplay.Image != null)
@@ -122,6 +175,35 @@ namespace CaptureForSIMPLE
                 // PictureBoxSizeMode.Zoom がアスペクト比を保ちつつ、片側のみ余白でフィットさせる。
                 pictureBoxDisplay.Image = (Image)captureBitmap.Clone();
             }
+        }
+
+        /// <summary>
+        /// Windowsの設定（アクセシビリティ）で指定されたカーソルのサイズを取得します。
+        /// 取得できない場合は標準の32を返します。
+        /// </summary>
+        private int GetSystemCursorSize()
+        {
+            try
+            {
+                // ユーザーごとの設定が保存されているレジストリキーを開く
+                using (var key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Cursors"))
+                {
+                    if (key != null)
+                    {
+                        // "CursorBaseSize" という名前の値を取得
+                        var val = key.GetValue("CursorBaseSize");
+                        if (val != null)
+                        {
+                            return Convert.ToInt32(val);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // エラーが発生した場合やキーがない場合は標準サイズを返す
+            }
+            return 32; // デフォルト（32x32）
         }
     }
 }
